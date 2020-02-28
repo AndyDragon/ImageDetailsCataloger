@@ -92,7 +92,11 @@ namespace ImageDetailsCataloger
                     Array.Sort(files, StringComparer.OrdinalIgnoreCase);
                     foreach (var filePath in files)
                     {
-                        if (string.Equals(Path.GetExtension(filePath), ".NEF", StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(Path.GetExtension(filePath), ".NEF", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(Path.GetExtension(filePath), ".ORF", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(Path.GetExtension(filePath), ".ARW", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(Path.GetExtension(filePath), ".CR2", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(Path.GetExtension(filePath), ".CR3", StringComparison.OrdinalIgnoreCase))
                         {
                             ParseImageFile(filePath, asyncExifTool, data);
                             if (data.Keys.Count >= 50)
