@@ -6,5 +6,7 @@
 		".arw",
 		".cr2",
 		".cr3"
-	]
+	],
+	"recycleExifTool": false,
+	"filesInBatch":  50
 }

@@ -56,6 +56,8 @@ namespace ImageDetailsCataloger
         {
             public bool RecursiveFolders { get; set; }
             public IList<string> FolderSearchExtensions { get; set; }
+            public bool RecycleExifTool { get; set; }
+            public int FilesInBatch { get; set; }
         }
 
         static void Main(string[] args)
@@ -115,15 +117,21 @@ namespace ImageDetailsCataloger
                         if (options.FolderSearchExtensions.Any(extension => string.Equals(Path.GetExtension(filePath), extension, StringComparison.OrdinalIgnoreCase)))
                         {
                             ParseImageFile(filePath, asyncExifTool, data);
-                            if (data.Keys.Count >= 50)
+                            if (data.Keys.Count >= options.FilesInBatch)
                             {
-                                asyncExifTool.DisposeAsync().AsTask().Wait();
+                                if (options.RecycleExifTool)
+                                {
+                                    asyncExifTool.DisposeAsync().AsTask().Wait();
+                                }
 
                                 // To avoid memory issues, write to the DB every so many files.
                                 WriteDataToDB(sqlite, data, statistics);
 
-                                asyncExifTool = new AsyncExifTool(config);
-                                asyncExifTool.Initialize();
+                                if (options.RecycleExifTool)
+                                {
+                                    asyncExifTool = new AsyncExifTool(config);
+                                    asyncExifTool.Initialize();
+                                }
                             }
                         }
                     }
