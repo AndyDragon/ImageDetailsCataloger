@@ -25,11 +25,13 @@ SOFTWARE.
 ****************************************************************************/
 
 using CoenM.ExifToolLib;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -39,15 +41,21 @@ namespace ImageDetailsCataloger
     {
         class ExifData
         {
-            public string Formatted;
-            public string Raw;
+            public string Formatted { get; set; }
+            public string Raw { get; set; }
         }
 
         class Statistics
         {
-            public int Added;
-            public int Updated;
-            public int ColumnsAdded;
+            public int Added { get; set; }
+            public int Updated { get; set; }
+            public int ColumnsAdded { get; set; }
+        }
+
+        class Options
+        {
+            public bool RecursiveFolders { get; set; }
+            public IList<string> FolderSearchExtensions { get; set; }
         }
 
         static void Main(string[] args)
@@ -58,7 +66,19 @@ namespace ImageDetailsCataloger
                 return;
             }
 
+            var location = Path.GetDirectoryName(Assembly.GetEntryAssembly().GetFiles()[0].Name);
             var homeFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var options = ReadOptions(".imagedetailscataloger_options.json", homeFolder);
+            if (options == null)
+            {
+                // Fall-back to the default options.
+                Console.WriteLine("Using default options, user options not found");
+                options = ReadOptions("options.json", location);
+                if (options == null)
+                {
+                    Console.Error.WriteLine("Cannot find the Options JSON file in the application folder");
+                }
+            }
 
             var exifToolPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? @"exiftool.exe" : @"exiftool";
             var exifToolResultEncoding = Encoding.UTF8;
@@ -87,15 +107,12 @@ namespace ImageDetailsCataloger
 
                 if (Directory.Exists(arg))
                 {
-                    var files = Directory.GetFiles(arg);
+                    var searchOptions = options.RecursiveFolders ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+                    var files = Directory.GetFiles(arg, "*.*", searchOptions);
                     Array.Sort(files, StringComparer.OrdinalIgnoreCase);
                     foreach (var filePath in files)
                     {
-                        if (string.Equals(Path.GetExtension(filePath), ".NEF", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(Path.GetExtension(filePath), ".ORF", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(Path.GetExtension(filePath), ".ARW", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(Path.GetExtension(filePath), ".CR2", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(Path.GetExtension(filePath), ".CR3", StringComparison.OrdinalIgnoreCase))
+                        if (options.FolderSearchExtensions.Any(extension => string.Equals(Path.GetExtension(filePath), extension, StringComparison.OrdinalIgnoreCase)))
                         {
                             ParseImageFile(filePath, asyncExifTool, data);
                             if (data.Keys.Count >= 50)
@@ -131,6 +148,72 @@ namespace ImageDetailsCataloger
             Console.WriteLine(" Updated {0} files in the database", statistics.Updated);
             Console.WriteLine(" Added {0} columns to the database", statistics.ColumnsAdded);
             Console.WriteLine("--------------------------------------------------------------");
+        }
+
+
+        private static Options ReadOptions(string optionsFileName, string location)
+        {
+            var optionsFile = Path.Combine(location, optionsFileName);
+            if (!File.Exists(optionsFile))
+            {
+                return null;
+            }
+
+            var options = JsonConvert.DeserializeObject<Options>(File.ReadAllText(optionsFile));
+            return options;
+        }
+
+        private static void ParseImageFile(string path, AsyncExifTool asyncExifTool, Dictionary<string, Dictionary<string, ExifData>> data)
+        {
+            Console.WriteLine("Processing {0}...", path);
+
+            var fileData = new Dictionary<string, ExifData>();
+            data.Add(path, fileData);
+
+            ParseFileData(asyncExifTool.ExecuteAsync(new[] { "-a", "-g", "-sort", path }).ConfigureAwait(false).GetAwaiter().GetResult(), fileData, true);
+            ParseFileData(asyncExifTool.ExecuteAsync(new[] { "-a", "-g", "-n", "-sort", path }).ConfigureAwait(false).GetAwaiter().GetResult(), fileData, false);
+        }
+
+        private static void ParseFileData(string result, Dictionary<string, ExifData> fileData, bool formattedData)
+        {
+            var rows = result.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            var section = "Root";
+            foreach (var row in rows)
+            {
+                if (row.StartsWith("----"))
+                {
+                    section = row.Trim(new[] { '-', ' ' });
+                    continue;
+                }
+                var tagSeparatorPosition = row.IndexOf(":");
+                if (tagSeparatorPosition != -1)
+                {
+                    var tag = section + ":" + row.Substring(0, tagSeparatorPosition).Trim();
+                    var value = row.Substring(tagSeparatorPosition + 1).Trim();
+                    if (fileData.ContainsKey(tag))
+                    {
+                        if (formattedData)
+                        {
+                            fileData[tag].Formatted = value;
+                        }
+                        else
+                        {
+                            fileData[tag].Raw = value;
+                        }
+                    }
+                    else
+                    {
+                        if (formattedData)
+                        {
+                            fileData.Add(tag, new ExifData { Formatted = value });
+                        }
+                        else
+                        {
+                            fileData.Add(tag, new ExifData { Raw = value });
+                        }
+                    }
+                }
+            }
         }
 
         private static void WriteDataToDB(SQLiteConnection sqlite, Dictionary<string, Dictionary<string, ExifData>> data, Statistics statistics)
@@ -212,59 +295,7 @@ namespace ImageDetailsCataloger
             }
 
             data.Clear();
-        }
-
-        private static void ParseImageFile(string path, AsyncExifTool asyncExifTool, Dictionary<string, Dictionary<string, ExifData>> data)
-        {
-            Console.WriteLine("Processing {0}...", path);
-
-            var fileData = new Dictionary<string, ExifData>();
-            data.Add(path, fileData);
-
-            ParseFileData(asyncExifTool.ExecuteAsync(new[] { "-a", "-g", "-sort", path }).ConfigureAwait(false).GetAwaiter().GetResult(), fileData, true);
-            ParseFileData(asyncExifTool.ExecuteAsync(new[] { "-a", "-g", "-n", "-sort", path }).ConfigureAwait(false).GetAwaiter().GetResult(), fileData, false);
-        }
-
-        private static void ParseFileData(string result, Dictionary<string, ExifData> fileData, bool formattedData)
-        {
-            var rows = result.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
-            var section = "Root";
-            foreach (var row in rows)
-            {
-                if (row.StartsWith("----"))
-                {
-                    section = row.Trim(new[] { '-', ' ' });
-                    continue;
-                }
-                var tagSeparatorPosition = row.IndexOf(":");
-                if (tagSeparatorPosition != -1)
-                {
-                    var tag = section + ":" + row.Substring(0, tagSeparatorPosition).Trim();
-                    var value = row.Substring(tagSeparatorPosition + 1).Trim();
-                    if (fileData.ContainsKey(tag))
-                    {
-                        if (formattedData)
-                        {
-                            fileData[tag].Formatted = value;
-                        }
-                        else
-                        {
-                            fileData[tag].Raw = value;
-                        }
-                    }
-                    else
-                    {
-                        if (formattedData)
-                        {
-                            fileData.Add(tag, new ExifData { Formatted = value });
-                        }
-                        else
-                        {
-                            fileData.Add(tag, new ExifData { Raw = value });
-                        }
-                    }
-                }
-            }
+            GC.Collect();
         }
     }
 }

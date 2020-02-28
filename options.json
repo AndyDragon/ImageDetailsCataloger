@@ -1,0 +1,10 @@
+{
+	"recursiveFolders": false,
+	"folderSearchExtensions": [
+		".nef",
+		".orf",
+		".arw",
+		".cr2",
+		".cr3"
+	]
+}
