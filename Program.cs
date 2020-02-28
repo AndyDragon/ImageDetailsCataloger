@@ -30,7 +30,6 @@ using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -59,7 +58,6 @@ namespace ImageDetailsCataloger
                 return;
             }
 
-            //var location = Path.GetDirectoryName(Assembly.GetEntryAssembly().GetFiles()[0].Name);
             var homeFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
             var exifToolPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? @"exiftool.exe" : @"exiftool";
@@ -102,8 +100,13 @@ namespace ImageDetailsCataloger
                             ParseImageFile(filePath, asyncExifTool, data);
                             if (data.Keys.Count >= 50)
                             {
+                                asyncExifTool.DisposeAsync().AsTask().Wait();
+
                                 // To avoid memory issues, write to the DB every so many files.
                                 WriteDataToDB(sqlite, data, statistics);
+
+                                asyncExifTool = new AsyncExifTool(config);
+                                asyncExifTool.Initialize();
                             }
                         }
                     }
@@ -118,7 +121,6 @@ namespace ImageDetailsCataloger
                 }
             }
 
-            asyncExifTool.DisposeAsync().AsTask().Wait();
 
             WriteDataToDB(sqlite, data, statistics);
 
@@ -179,7 +181,7 @@ namespace ImageDetailsCataloger
                 columns.Add(columnReader.GetString(1));
             }
 
-            Console.WriteLine("Adding {0} files to DB", data.Keys.Count);
+            Console.WriteLine("Adding/Updating {0} files to DB", data.Keys.Count);
 
             foreach (var fileKey in data.Keys)
             {
@@ -219,13 +221,8 @@ namespace ImageDetailsCataloger
             var fileData = new Dictionary<string, ExifData>();
             data.Add(path, fileData);
 
-            var task = asyncExifTool.ExecuteAsync(new[] { /*"-u", */"-a", "-g", "-sort", path });
-            task.Wait();
-            ParseFileData(task.Result, fileData, true);
-
-            task = asyncExifTool.ExecuteAsync(new[] { /*"-u", */"-a", "-g", "-n", "-sort", path });
-            task.Wait();
-            ParseFileData(task.Result, fileData, false);
+            ParseFileData(asyncExifTool.ExecuteAsync(new[] { "-a", "-g", "-sort", path }).ConfigureAwait(false).GetAwaiter().GetResult(), fileData, true);
+            ParseFileData(asyncExifTool.ExecuteAsync(new[] { "-a", "-g", "-n", "-sort", path }).ConfigureAwait(false).GetAwaiter().GetResult(), fileData, false);
         }
 
         private static void ParseFileData(string result, Dictionary<string, ExifData> fileData, bool formattedData)
