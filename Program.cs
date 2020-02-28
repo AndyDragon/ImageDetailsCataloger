@@ -31,6 +31,7 @@ using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace ImageDetailsCataloger
@@ -58,10 +59,10 @@ namespace ImageDetailsCataloger
                 return;
             }
 
-            var location = Path.GetDirectoryName(Assembly.GetEntryAssembly().GetFiles()[0].Name);
+            //var location = Path.GetDirectoryName(Assembly.GetEntryAssembly().GetFiles()[0].Name);
             var homeFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
-            var exifToolPath = @"exiftool.exe";
+            var exifToolPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? @"exiftool.exe" : @"exiftool";
             var exifToolResultEncoding = Encoding.UTF8;
             var exifToolResultNewLine = "\r\n";
             var config = new AsyncExifToolConfiguration(exifToolPath, exifToolResultEncoding, exifToolResultNewLine, null);
