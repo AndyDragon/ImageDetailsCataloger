@@ -68,6 +68,8 @@ namespace ImageDetailsCataloger
                 return;
             }
 
+            ConsoleLogger logger = null;// new ConsoleLogger();
+
             var location = Path.GetDirectoryName(Assembly.GetEntryAssembly().GetFiles()[0].Name);
             var homeFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             var options = ReadOptions(".imagedetailscataloger_options.json", homeFolder);
@@ -86,7 +88,7 @@ namespace ImageDetailsCataloger
             var exifToolResultEncoding = Encoding.UTF8;
             var exifToolResultNewLine = "\r\n";
             var config = new AsyncExifToolConfiguration(exifToolPath, exifToolResultEncoding, exifToolResultNewLine, null);
-            var asyncExifTool = new AsyncExifTool(config);
+            var asyncExifTool = new AsyncExifTool(config, logger);
             asyncExifTool.Initialize();
 
             if (!File.Exists(Path.Combine(homeFolder, "ImageDetails.sqlite")))
@@ -129,7 +131,7 @@ namespace ImageDetailsCataloger
 
                                 if (options.RecycleExifTool)
                                 {
-                                    asyncExifTool = new AsyncExifTool(config);
+                                    asyncExifTool = new AsyncExifTool(config, logger);
                                     asyncExifTool.Initialize();
                                 }
                             }
