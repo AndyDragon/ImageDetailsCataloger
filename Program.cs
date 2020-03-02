@@ -68,8 +68,6 @@ namespace ImageDetailsCataloger
                 return;
             }
 
-            ConsoleLogger logger = null;// new ConsoleLogger();
-
             var location = Path.GetDirectoryName(Assembly.GetEntryAssembly().GetFiles()[0].Name);
             var homeFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             var options = ReadOptions(".imagedetailscataloger_options.json", homeFolder);
@@ -87,7 +85,7 @@ namespace ImageDetailsCataloger
             var exifToolPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? @"exiftool.exe" : @"exiftool";
             var exifToolResultEncoding = Encoding.UTF8;
             var config = new AsyncExifToolConfiguration(exifToolPath, exifToolResultEncoding, Environment.NewLine, null);
-            var asyncExifTool = new AsyncExifTool(config, logger);
+            var asyncExifTool = new AsyncExifTool(config);
             asyncExifTool.Initialize();
 
             if (!File.Exists(Path.Combine(homeFolder, "ImageDetails.sqlite")))
@@ -130,7 +128,7 @@ namespace ImageDetailsCataloger
 
                                 if (options.RecycleExifTool)
                                 {
-                                    asyncExifTool = new AsyncExifTool(config, logger);
+                                    asyncExifTool = new AsyncExifTool(config);
                                     asyncExifTool.Initialize();
                                 }
                             }
@@ -185,7 +183,7 @@ namespace ImageDetailsCataloger
 
         private static void ParseFileData(string result, Dictionary<string, ExifData> fileData, bool formattedData)
         {
-            var rows = result.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            var rows = result.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
             var section = "Root";
             foreach (var row in rows)
             {
@@ -278,6 +276,11 @@ namespace ImageDetailsCataloger
             foreach (var fileKey in data.Keys)
             {
                 var fileData = data[fileKey];
+                if (fileData.Keys.Count() == 0)
+                {
+                    Console.WriteLine("Skipping {0}, no EXIF data", fileKey);
+                    continue;
+                }
                 command = new SQLiteCommand("SELECT * FROM image_details WHERE file = '" + fileKey + "';", sqlite);
                 var fileRowReader = command.ExecuteReader();
                 if (fileRowReader.Read())
