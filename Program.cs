@@ -84,7 +84,7 @@ namespace ImageDetailsCataloger
 
             var exifToolPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? @"exiftool.exe" : @"exiftool";
             var exifToolResultEncoding = Encoding.UTF8;
-            var config = new AsyncExifToolConfiguration(exifToolPath, exifToolResultEncoding, Environment.NewLine, null);
+            var config = new AsyncExifToolConfiguration(exifToolPath, exifToolResultEncoding, null);
             var asyncExifTool = new AsyncExifTool(config);
             asyncExifTool.Initialize();
 
