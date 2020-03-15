@@ -1,0 +1,11 @@
+{
+	"recursiveFolders": false,
+	"folderSearchExtensions": [
+		".nef",
+		".orf",
+		".cr2"
+	],
+	"recycleExifTool": true,
+	"filesInBatch": 200,
+	"useHomeFolder":  true
+}

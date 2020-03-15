@@ -58,6 +58,7 @@ namespace ImageDetailsCataloger
             public IList<string> FolderSearchExtensions { get; set; }
             public bool RecycleExifTool { get; set; }
             public int FilesInBatch { get; set; }
+            public bool UseHomeFolder { get; set; }
         }
 
         static void Main(string[] args)
@@ -82,19 +83,21 @@ namespace ImageDetailsCataloger
                 }
             }
 
+            var databaseLocation = Path.Combine(options.UseHomeFolder ? homeFolder : location, "ImageDetails.sqlite");
+
             var exifToolPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? @"exiftool.exe" : @"exiftool";
             var exifToolResultEncoding = Encoding.UTF8;
             var config = new AsyncExifToolConfiguration(exifToolPath, exifToolResultEncoding, null);
             var asyncExifTool = new AsyncExifTool(config);
             asyncExifTool.Initialize();
 
-            if (!File.Exists(Path.Combine(homeFolder, "ImageDetails.sqlite")))
+            if (!File.Exists(databaseLocation))
             {
                 Console.WriteLine("Creating SQLite DB");
 
-                SQLiteConnection.CreateFile(Path.Combine(homeFolder, "ImageDetails.sqlite"));
+                SQLiteConnection.CreateFile(databaseLocation);
             }
-            var sqlite = new SQLiteConnection("Data Source='" + Path.Combine(homeFolder, "ImageDetails.sqlite") + "'");
+            var sqlite = new SQLiteConnection("Data Source='" + databaseLocation + "'");
             sqlite.Open();
 
             var command1 = new SQLiteCommand("CREATE TABLE IF NOT EXISTS image_details (id integer PRIMARY KEY, file TEXT NOT NULL UNIQUE);", sqlite);

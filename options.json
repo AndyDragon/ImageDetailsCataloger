@@ -1,12 +1,20 @@
 {
 	"recursiveFolders": false,
 	"folderSearchExtensions": [
+		".dng",
+
 		".nef",
+
 		".orf",
+
+		".arq",
 		".arw",
+
+		".crw",
 		".cr2",
 		".cr3"
 	],
 	"recycleExifTool": false,
-	"filesInBatch":  50
+	"filesInBatch": 50,
+	"useHomeFolder":  true
 }
